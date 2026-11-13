@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { resolveApiBaseUrl } from "@/lib/endpoints";
+
 const REFRESH_MS = 60_000;
 
 export type QueryState<T> = {
@@ -25,7 +27,7 @@ export function useApiQuery<T>(
   const [state, setState] = useState<QueryState<T>>({ status: "loading" });
 
   useEffect(() => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+    const apiUrl = resolveApiBaseUrl(process.env.NEXT_PUBLIC_API_URL);
     // Aborting cancels an in-flight request so a slow, outdated response
     // cannot overwrite data for newer inputs.
     let controller = new AbortController();

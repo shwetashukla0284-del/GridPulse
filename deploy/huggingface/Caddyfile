@@ -1,0 +1,19 @@
+# Single public entry point for the all-in-one image.
+# TLS is handled by the host (Hugging Face), so Caddy serves plain HTTP inside.
+{
+	admin off
+	auto_https off
+}
+
+:{$PORT:7860} {
+	# API routes and the WebSocket go to FastAPI (reverse_proxy upgrades WebSockets automatically).
+	@api path /health /readings/* /analytics/* /alerts /ws/* /docs /docs/* /openapi.json
+	handle @api {
+		reverse_proxy 127.0.0.1:8000
+	}
+
+	# Everything else is the Next.js dashboard.
+	handle {
+		reverse_proxy 127.0.0.1:3000
+	}
+}

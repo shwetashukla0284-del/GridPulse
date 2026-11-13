@@ -1,10 +1,14 @@
-# Build context for backend/Dockerfile (repository root).
+# Build context for backend/Dockerfile and the all-in-one Dockerfile (repository root).
 .git
 **/__pycache__
 **/*.py[cod]
 .venv
-frontend
 docs
 tests
 infra
 *.md
+**/node_modules
+**/.next
+**/*.tsbuildinfo
+**/.env*
+!**/.env.example

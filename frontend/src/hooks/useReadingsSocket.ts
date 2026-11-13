@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { mergeAlerts } from "@/lib/alerts";
+import { resolveSocketUrl } from "@/lib/endpoints";
 import { AnomalyAlert, ChartPoint, isReadingBatch, Reading } from "@/types/readings";
 
 const MAX_CHART_POINTS = 60;
@@ -56,8 +57,10 @@ export function useReadingsSocket(): ReadingsState {
   });
 
   useEffect(() => {
-    const socketUrl =
-      process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000/ws/readings";
+    const socketUrl = resolveSocketUrl(
+      process.env.NEXT_PUBLIC_WS_URL,
+      window.location,
+    );
     let socket: WebSocket | undefined;
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
     let disposed = false;

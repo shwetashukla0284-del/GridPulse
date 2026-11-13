@@ -40,6 +40,48 @@ Then rebuild (`docker compose up --build`). The dashboard image must be rebuilt 
 9. **Data retention.** Readings grow without limit. Add a TimescaleDB retention policy (e.g. `SELECT add_retention_policy('meter_readings', INTERVAL '90 days');`) and consider compression.
 10. **Backups and monitoring.** Back up the database volume. Monitor `/health` (it returns 503 if the consumer or batcher stops) and watch `websocket_readings_dropped`.
 
+## Free public demo: Hugging Face Spaces (single container)
+
+Hugging Face Spaces hosts a Docker app for free with no credit card, but runs **one container on one port** (7860). The root `Dockerfile` therefore packages every service as a process in one image:
+
+| Compose service | All-in-one equivalent |
+|---|---|
+| `redis` | `redis-server` on 127.0.0.1 (in memory only) |
+| `timescale` | `postgres` with `timescaledb` preloaded, data under `$HOME/pgdata` |
+| `api` | `uvicorn` on 127.0.0.1:8000 |
+| `simulator` | `python3 -m simulator --realtime` |
+| `frontend` | `next start` on 127.0.0.1:3000 |
+| (new) | **Caddy** on port 7860 — the only public port |
+
+`deploy/huggingface/start.sh` starts them in the same order Compose's health checks enforce and exits if any process stops, so the host restarts the whole container. `deploy/huggingface/Caddyfile` sends `/health`, `/readings/*`, `/analytics/*`, `/alerts`, `/ws/*`, `/docs`, and `/openapi.json` to FastAPI and everything else to the dashboard. Because the browser sees one origin, the dashboard is built with empty `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_WS_URL` (same origin, see `frontend/src/lib/endpoints.ts`) and CORS is not needed.
+
+Run it locally first:
+
+```bash
+docker build -t gridpulse-allinone .
+docker run --rm -p 7860:7860 gridpulse-allinone   # http://localhost:7860
+```
+
+Publish it:
+
+1. Create a Space at <https://huggingface.co/new-space>: SDK **Docker**, template **Blank**, hardware **CPU basic (free)**.
+2. Create a Hugging Face access token with **write** permission at <https://huggingface.co/settings/tokens>. Git uses it as the password.
+3. Push the repository to the Space (the YAML block at the top of `README.md` tells Spaces to use Docker on port 7860):
+
+   ```bash
+   git remote add space https://huggingface.co/spaces/<username>/GridPulse
+   git push space main
+   ```
+
+4. Watch the **Logs** tab while it builds. The site is at `https://<username>-gridpulse.hf.space`.
+
+Free-tier trade-offs:
+
+- **Temporary storage.** The database starts empty after every restart or rebuild; the simulator refills it, so history covers only the time since the last start.
+- **Sleeps when idle.** A Space with no visitors for about 48 hours sleeps; the next visitor waits for it to start.
+- **Database without a password.** PostgreSQL uses `trust` authentication but listens only on 127.0.0.1 inside the container, and only Caddy's port is reachable. Do not publish other ports from this image.
+- **Python 3.12.** The image uses the TimescaleDB base image's Alpine Python (3.12) rather than the 3.13 used locally.
+
 ## Running without Docker (development)
 
 ```bash

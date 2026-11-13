@@ -153,3 +153,7 @@ Not with natural batching: it never waits for more messages, so at low load batc
 ## What would you change to deploy this for real?
 
 Secrets out of the Compose defaults, pinned image versions, TLS via a reverse proxy with `wss://`, authentication on REST and WebSocket, versioned migrations, a durable queue (Redis Streams or Kafka) instead of Pub/Sub, a retention policy, backups, and monitoring of `/health`. Scaling beyond one API instance needs shared WebSocket fan-out and partitioned detector state. These are listed in `docs/DEPLOYMENT.md`.
+
+## How is the public demo hosted?
+
+On Hugging Face Spaces, which is free but runs one container on one port. The root `Dockerfile` starts from the TimescaleDB image, adds Redis, Python, Node.js, and Caddy, and a start script launches the services in the same order Compose's health checks enforce. Caddy is the only public port and routes API and WebSocket paths to FastAPI, everything else to Next.js, so the dashboard is built for "same origin" and needs no CORS. Trade-offs: storage is temporary (data restarts with the container), and Postgres uses trust authentication, which is acceptable only because it listens on 127.0.0.1 inside the container. Local testing caught one bug: the base image sets `PGDATA` to a directory the non-root user cannot write, so `initdb` failed until `PGDATA` was set explicitly.

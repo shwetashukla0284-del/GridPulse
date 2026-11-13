@@ -260,6 +260,14 @@ Compose puts services on a private network where each is reachable by its servic
 
 Next.js replaces `NEXT_PUBLIC_*` variables with their values when the app is built, because the code runs in the browser. Changing them requires rebuilding the image. Server-side settings such as `DATABASE_URL` are read when the process starts and can change without rebuilding.
 
+## Reverse proxy and same-origin deployment
+
+A reverse proxy is one public entry point that forwards each request to the right internal service, like a reception desk directing visitors to offices. In the all-in-one image, Caddy forwards API and WebSocket paths to FastAPI and everything else to Next.js. Because the page and the API then share one origin (scheme, host, and port), the browser can use relative paths such as `/readings/history`, needs no CORS headers, and builds its WebSocket URL from the page address (`wss://` on an HTTPS page, because browsers block insecure WebSockets there).
+
+## One container, many processes
+
+Docker's usual rule is one process per container, with an orchestrator (Compose) handling start order and restarts. Hosts that allow only one container push that job into the container: a start script launches each service, waits for readiness before starting dependents, and exits when any process stops so the host restarts the whole unit. It is a deployment adaptation, not a change to the architecture: the same services still talk over Redis, SQL, and HTTP.
+
 ## Concept coverage
 
 All concepts planned at Phase 0 are now covered above: async/await and event loops, Redis Pub/Sub, WebSockets, time-series databases, SQL window functions, anomaly detection, React state and effects, and Docker networking.

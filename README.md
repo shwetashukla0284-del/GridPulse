@@ -1,3 +1,14 @@
+---
+title: GridPulse
+emoji: ⚡
+colorFrom: green
+colorTo: blue
+sdk: docker
+app_port: 7860
+pinned: false
+short_description: Real-time smart grid analytics dashboard
+---
+
 # GridPulse — Real-Time Smart Grid Analytics
 
 GridPulse simulates household smart meters with rooftop solar, streams their readings through Redis into a FastAPI service, stores them in TimescaleDB, flags unusual demand with a rolling z-score detector, and shows everything live on a Next.js dashboard.
@@ -68,7 +79,7 @@ Simulated faults (3–8 kW surges over 0.08 kW noise) are far easier to detect t
 
 ```bash
 python -m unittest discover -s tests        # 43 Python tests
-npm --prefix frontend test                  # 17 frontend tests (Vitest)
+npm --prefix frontend test                  # 24 frontend tests (Vitest)
 npm --prefix frontend run typecheck
 npm --prefix frontend run lint
 
@@ -85,6 +96,8 @@ frontend/       Next.js dashboard and Vitest tests
 tests/          Python tests, anomaly evaluation, load test
 docs/           architecture, deployment, learning log, concepts, interview prep
 compose.yaml    full local stack
+Dockerfile      all-in-one image for single-container hosts (Hugging Face Spaces)
+deploy/         start script and Caddy proxy config for the all-in-one image
 ```
 
 ## Limitations

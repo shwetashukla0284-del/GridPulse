@@ -63,6 +63,11 @@ The batched ceiling was not reached: the single-process load generator topped ou
 
 Anomaly detection, scored against injected faults (5 meters × 3 simulated days, 21,600 readings per seed, threshold 4.0): seed 7 precision 0.953 / recall 1.000; seed 99 precision 0.913 / recall 0.995 (threshold chosen on seed 2026). Simulated surges are much larger than the noise, so these figures are optimistic.
 
+## Deployment variants
+
+- **Compose (`compose.yaml`)**: one container per service, for local development and servers.
+- **All-in-one (`Dockerfile`, `deploy/huggingface/`)**: for hosts that run a single container on one port (Hugging Face Spaces). Every service runs as a process; Caddy on port 7860 routes `/health`, `/readings/*`, `/analytics/*`, `/alerts`, `/ws/*`, `/docs`, and `/openapi.json` to FastAPI and the rest to Next.js. The dashboard is built with empty `NEXT_PUBLIC_*` URLs, meaning same origin (`frontend/src/lib/endpoints.ts`). Storage is temporary on free Spaces. See `docs/DEPLOYMENT.md`.
+
 ## Known limitations
 
 - Redis Pub/Sub loses messages published while the API is down; there is no replay.
