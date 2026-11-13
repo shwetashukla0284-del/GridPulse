@@ -1,0 +1,10 @@
+# Build context for backend/Dockerfile (repository root).
+.git
+**/__pycache__
+**/*.py[cod]
+.venv
+frontend
+docs
+tests
+infra
+*.md

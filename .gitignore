@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.venv/
+node_modules/
+.next/
+*.tsbuildinfo
+
+# Local environment files (may hold real passwords); keep the committed example
+.env
+.env.*
+!.env.example

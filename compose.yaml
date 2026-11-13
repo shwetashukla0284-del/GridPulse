@@ -1,0 +1,112 @@
+# GridPulse local stack:  docker compose up --build
+# Dashboard: http://localhost:${WEB_PORT:-3000}   API: http://localhost:${API_PORT:-8000}
+#
+# Credentials below are development defaults. Override them (e.g. in a .env
+# file next to this one) and see docs/DEPLOYMENT.md before running anywhere
+# other than your own machine.
+
+name: gridpulse
+
+services:
+  redis:
+    image: ${REDIS_IMAGE:-redis:7-alpine}
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    # No published port: only other services on this network can reach it.
+
+  timescale:
+    image: ${TIMESCALE_IMAGE:-timescale/timescaledb:latest-pg16}
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gridpulse}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gridpulse_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-gridpulse}
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+    healthcheck:
+      # Check over TCP (-h 127.0.0.1), not the Unix socket: on a new volume the
+      # image first runs a temporary socket-only server while initializing, and
+      # a socket check would report "ready" before other containers can connect.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 60
+      start_period: 30s
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: gridpulse-backend:local
+    environment:
+      # Service names, not localhost: inside a container, localhost is itself.
+      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql://${POSTGRES_USER:-gridpulse}:${POSTGRES_PASSWORD:-gridpulse_dev}@timescale:5432/${POSTGRES_DB:-gridpulse}
+      CORS_ORIGINS: http://localhost:${WEB_PORT:-3000},http://127.0.0.1:${WEB_PORT:-3000}
+      CONSUMER_MAX_BATCH: ${CONSUMER_MAX_BATCH:-500}
+    ports:
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
+      timescale:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  simulator:
+    # Same image as the API (built from the same Dockerfile; layers are cached).
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: gridpulse-backend:local
+    # Redis Pub/Sub only delivers to subscribers connected at publish time,
+    # so wait until the API (the subscriber) reports healthy.
+    depends_on:
+      api:
+        condition: service_healthy
+    command:
+      - python
+      - -m
+      - simulator
+      - --meters
+      - "${SIM_METERS:-5}"
+      - --interval-seconds
+      - "${SIM_INTERVAL_SECONDS:-2}"
+      - --steps
+      - "1000000"
+      - --realtime
+      - --redis-url
+      - redis://redis:6379/0
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: frontend
+      args:
+        # Addresses the browser on the host uses to reach the API.
+        NEXT_PUBLIC_API_URL: http://localhost:${API_PORT:-8000}
+        NEXT_PUBLIC_WS_URL: ws://localhost:${API_PORT:-8000}/ws/readings
+    image: gridpulse-frontend:local
+    ports:
+      - "127.0.0.1:${WEB_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      # Next.js takes several seconds to start; report healthy only once it serves pages.
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  timescale_data:

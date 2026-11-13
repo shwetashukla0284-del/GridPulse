@@ -1,0 +1,65 @@
+# Project learning instructions
+
+## Goal
+
+Build the Smart Grid Real-Time Analytics Dashboard as a learning-first portfolio project for SDE and Data Analyst roles. Understanding and being able to explain every design choice is more important than speed.
+
+## How to work with me
+
+- Teach one small step at a time. Before each implementation, explain what it adds, the relevant concept (use a practical analogy when helpful), why this approach fits, and important alternatives.
+- After implementation, explain the important parts and data flow, show how to run it and what to expect, and run a focused verification.
+- Stop after each step. Ask one to three short understanding questions and wait for my answer or "next" before continuing. If I misunderstand, explain it another way.
+- Prefer implementing small coherent steps directly, with clear explanations and focused verification. Only ask me to write code when I request a hands-on exercise.
+- Avoid unnecessary quiz questions or repeated permission checks. Explain key concepts and decisions in plain language and keep each implementation step bounded.
+- Explain errors and their diagnosis rather than silently fixing them.
+- Keep code clean, typed, and clearly commented only where comments aid understanding. Prefer simple, standard designs.
+- Keep changes staged or unstaged during the learning steps. Do not commit until I explicitly say we are at the end and ready to commit. Before any commit, review the changes with me.
+- Keep the requested documentation current after every step: `docs/LEARNING_LOG.md`, `docs/CONCEPTS.md`, `docs/ARCHITECTURE.md`, and `docs/INTERVIEW_PREP.md`.
+- Never invent benchmark results. Include only measurements actually collected.
+
+## Project phases
+
+0. Check the environment, set up Git, and establish the project structure.
+1. Write a Python simulator for realistic meter readings, solar generation, noise, and occasional faults.
+2. Send readings through Redis Pub/Sub, consume them with FastAPI, and persist them in PostgreSQL with TimescaleDB.
+3. Broadcast readings over FastAPI WebSockets with server-side batching or throttling.
+4. Build a Next.js, React, TypeScript, and Recharts dashboard with a reconnecting WebSocket hook and efficient rendering.
+5. Add SQL analytics, REST endpoints, KPI panels, and historical trends.
+6. Detect anomalies using z-scores or rolling standard deviation and display alerts.
+7. Add tests and measure real throughput and p95 latency with a load test.
+8. Polish Docker Compose startup, deployment guidance, architecture documentation, and measured findings.
+
+## Current progress
+
+- Phase 0 complete: Windows 10 Pro 64-bit, Python 3.13.12, Node.js 24.17.0, npm 11.13.0, Git 2.54.0, and Docker Desktop's Linux engine are available.
+- Checked Docker prerequisites: WSL 2 is enabled with Ubuntu available, Windows reports the hypervisor is active, Windows 10 Pro build 19045 meets the documented OS requirement, and memory is above the documented 8 GB minimum. The user completed Docker Desktop installation. Docker CLI and server 29.9.3 and Compose 5.7.0 are verified; Docker reports `OSType=linux`.
+- Initialized Git on the `main` branch; there are no commits or remote configured.
+- Created the initial directories: `backend/app`, `frontend`, `simulator`, `infra`, `tests`, and `docs`.
+- Changes remain uncommitted (some are staged). Defer commits until the user says the project is at the end and ready.
+- Phase 1, step 1 complete: `simulator/reading.py` defines an immutable `MeterReading` dataclass; its `net_grid_kw` calculation passed import/export/balanced assertions.
+- Phase 1, step 2 complete: `simulator/profiles.py` defines deterministic demand and solar profiles. Focused assertions passed for peak timing, daylight bounds, capacity scaling, and invalid negative capacity.
+- Phase 1, step 3 complete: `simulator/generator.py` combines profiles, seeded Gaussian noise, and marked demand surges. `tests/test_simulator.py` covers reproducibility, faults, physical bounds, and invalid configuration.
+- Phase 1, step 4 complete: `simulator/simulation.py` yields multi-meter readings on virtual time, and `python -m simulator` emits JSON Lines. Tests cover ordering, reproducibility, and invalid configuration; CLI output parses with the expected record count and fields.
+- Phase 1, step 5 complete: `python -m simulator --realtime` flushes each reading and waits between timestamp batches; tests confirm default mode does not sleep and paced mode sleeps once between steps.
+- Phase 2, step 1 complete: `simulator/publisher.py` serializes and publishes to `gridpulse:readings`; `python -m simulator --redis-url redis://127.0.0.1:6379/0` writes readings to Redis and stdout. 12 unit tests passed and a local Redis subscriber received all 4 messages from a 2-meter × 2-step run.
+- Phase 2, step 2 complete: FastAPI at `backend.app.main:app` asynchronously consumes Redis messages, validates them with Pydantic, and exposes `/health` and `/readings/latest`. 15 unit tests passed and a live Uvicorn/Redis/HTTP check confirmed 4 consumed readings.
+- Phase 2, step 3 complete: `backend/app/repository.py` uses asyncpg to initialize a TimescaleDB hypertable, upsert validated readings, and serve database-backed latest/count endpoints. 17 unit tests passed; end-to-end testing persisted 4 readings and verified latest values/count after a FastAPI restart.
+- Phase 3, step 1 complete: `/ws/readings` broadcasts batches (max 100 readings or 100 ms) from a bounded 1,000-reading queue. Slow sends time out after 1 second; queue overflow drops and counts oldest live updates after database persistence. 21 unit tests passed; a live WebSocket received four readings and disconnect cleanup returned the client count to zero.
+- Phase 4, step 1 implemented: `frontend/` contains a Next.js dashboard with a runtime-validated reconnecting WebSocket hook, Recharts chart, KPI cards, latest-meter table, and fault indicators. Typecheck, lint, and production build passed. Browser live verification is pending.
+- A local `gridpulse-redis-dev` Redis 7 container is running, bound to localhost port 6379. The Docker credential helper may require adding `%LOCALAPPDATA%\Programs\DockerDesktop\resources\bin` to the current PowerShell process `PATH`.
+- A local `gridpulse-timescale-dev` container uses `timescale/timescaledb:latest-pg16`, listens only on `127.0.0.1:5432`, and stores data in the Docker volume `gridpulse_timescale_data`. Local development credentials are `gridpulse` / `gridpulse_dev`; do not use them outside local development.
+- `requirements.txt` declares asyncpg, FastAPI, Uvicorn, and Redis dependencies.
+- Phase 4, step 2 complete: end-to-end check passed — a WebSocket client received one batch of 6 readings (3 meters × 2 steps) from the simulator via Redis/FastAPI, and the Next.js page served HTTP 200 with its empty state. Visual browser confirmation by the user is pending.
+- Phase 5, step 1 complete: `GET /readings/history` (logic in `backend/app/history.py`, SQL in `repository.py`) returns time-bucketed system averages. 25 unit tests passed; a live seeded run matched an independent Python calculation; invalid windows return 422. The API on port 8000 from an earlier session still runs the old code and needs a restart to serve this endpoint.
+- Known simulator quirk: night-time solar averages slightly above zero because noise is clamped at zero.
+- Phase 5, step 2 complete: `HistoryPanel` + `useHistory` chart `/readings/history` (1h/6h/24h), refetching every minute and on WebSocket reconnect; FastAPI CORS allows only dashboard origins and GET. 26 unit tests, typecheck, and lint passed; live curl checks confirmed CORS headers and 30 buckets / 90 readings. Browser confirmation pending a restart of the port-8000 API (old process from an earlier session; stopping it was blocked by permissions).
+- Phase 5, step 3 complete: `GET /analytics/kpis` (LEAD-based kWh, import/export per meter, solar coverage, peak; 15-min gap limit; 31-day cap) and a KPI row in `HistoryPanel`; shared `useApiQuery` hook. 29 unit tests, typecheck, lint passed; live values matched an independent Python calculation including a 31-minute gap. Phase 5 complete pending browser check after a port-8000 restart.
+- Phase 6, step 1 complete: `RollingZScoreDetector` in `backend/app/anomaly.py` (window 30, threshold 3.0, warm-up 10, std floor 0.05 kW, default `baseline_policy="clip"`). `python -m tests.evaluate_anomaly` scores it against injected faults; measured on seed 2026 (21,600 readings, 229 faults): clip/3.0 precision 0.465, recall 1.000; clip/4.0 precision 0.927, recall 1.000; exclude/3.0 had 1,412 false positives (night-decline feedback loop). 37 unit tests pass.
+- Phase 6, step 2 complete: detector runs in the consumer; alerts stored in `anomaly_alerts` (DO NOTHING on replay), served at `GET /alerts`, broadcast as an `alerts` array on WebSocket `readings` messages. Default threshold 4.0, confirmed on held-out seeds 7 and 99 (precision 0.953 / 0.913, recall 1.000 / 0.995). 39 tests pass; live WebSocket, REST, and offline detector agreed on 2 alerts for seed 4. Known limits: in-memory state resets on restart; `/health` counts detections not unique alerts; no out-of-order check.
+- Phase 6, step 3 complete: `AlertsPanel` merges live WebSocket alerts (bounded 50) with stored `GET /alerts` (24 h) via pure `mergeAlerts` in `frontend/src/lib/alerts.ts`. Typecheck, lint, build, and 39 Python tests pass; real frontend validators/merge run in Node against live backend data passed 8 checks. Browser check pending a restart of the port-8000 API. Phase 6 complete.
+- Phase 7, step 1 complete: Vitest 5.0.5 (exact dev pin) with `frontend/vitest.config.mts` and `npm --prefix frontend test`; 17 tests across validators, `mergeAlerts`, and `aggregateBatch`. A deliberate bug was caught by 2 tests. Production audit 0; dev audit unchanged at 7 moderate (minimatch).
+- Phase 7, step 2 complete: `tests/load_test.py` (API on `READINGS_CHANNEL=gridpulse:loadtest`, port 8001). Measured on i3-6006U laptop, two runs: sustainable ~65–76 readings/s; at 50/s p50 80–91 ms, p95 156–315 ms; at 100–200/s backlog and multi-second latency; zero loss. Bottleneck: one commit per reading (commit latency varied 5.6–69 ms median; `synchronous_commit=off` test session doubled insert rate). 9,905 load-test rows remain (`meter_id LIKE 'load-%'`, 2030+ timestamps) pending user decision on deletion. One unreproduced Python test error after the load test (8 clean reruns).
+- Phase 7, step 3 complete: natural batching in `consume_readings` (bounded inbox, up to `CONSUMER_MAX_BATCH`=500 per transaction via `save_batch`); `/health` shows `batches_saved`/`largest_batch`. 43 Python tests pass. Alternating A/B (2 rounds): batch=1 delivered 36–77/s with multi-second backlogs at ≥100/s; batch=500 kept up with every rate the generator produced (up to 385/s delivered, p50 79–151 ms, p95 ≤ 703 ms), zero loss; ceiling not reached (generator limit 277–388/s). Load-test rows now ~40k with `meter_id LIKE 'load-%'`. Port 8000 is still the old process (PID 20664) and needs a user restart.
+- Phase 8 complete: `backend/Dockerfile`, `frontend/Dockerfile`, `.dockerignore` files, root `compose.yaml` (health-gated startup; `API_PORT`/`WEB_PORT`; Redis/TimescaleDB unpublished), root `README.md`, `docs/DEPLOYMENT.md`, rewritten `docs/ARCHITECTURE.md`. Verified from an empty volume as project `gridpulse-verify` on ports 18000/13000: all services healthy in 1 min 48 s, live data, WebSocket, REST + CORS, and dashboard 200. Fixed a Postgres health check that passed during init (now TCP) and added a frontend health check. 43 Python + 17 frontend tests pass. The `gridpulse-verify` stack was left running for the user's browser review (stop with `docker compose -p gridpulse-verify down -v`).
+- All phases complete. Release prep: `.gitattributes` (LF in repo) and `.env` ignore rules added; first commit made on `main`. Next: user creates a public GitHub repo and we push, then deploy to one Linux VM with Docker Compose + HTTPS. The compose stack `gridpulse-verify` now runs on default ports 3000 (dashboard) and 8000 (API). Load-test rows (~40k, `meter_id LIKE 'load-%'`) remain in the dev database only (not part of the repo).
+- Docker Desktop and its Linux engine are installed and verified.
