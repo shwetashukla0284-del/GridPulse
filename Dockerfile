@@ -32,6 +32,11 @@ FROM timescale/timescaledb:latest-pg16
 RUN apk add --no-cache bash redis nodejs py3-pip
 # Caddy is a single static binary; copy it from the official image.
 COPY --from=caddy:2.10-alpine /usr/bin/caddy /usr/local/bin/caddy
+# The official binary carries the cap_net_bind_service file capability (to bind
+# ports below 1024). Hosts that drop that capability, such as Render, then refuse
+# to execute it ("Operation not permitted", exit 126). Caddy listens on a high
+# port here, so re-copy the file: busybox cp does not keep the capability.
+RUN cp /usr/local/bin/caddy /tmp/caddy && mv -f /tmp/caddy /usr/local/bin/caddy
 
 WORKDIR /app
 COPY requirements.txt .

@@ -272,6 +272,10 @@ Docker's usual rule is one process per container, with an orchestrator (Compose)
 
 `render.yaml` describes the service (runtime, plan, health check, environment) in the repository instead of clicking through a dashboard. Like a recipe card versus remembering the steps, it makes the deployment reproducible and reviewable in Git. Memory budgets matter on small hosts: every process (Postgres buffers, the Node.js heap) takes a share of one fixed limit.
 
+## Linux capabilities
+
+Linux splits the all-powerful root user into separate capabilities, such as binding ports below 1024 (`CAP_NET_BIND_SERVICE`). A binary can carry capabilities as a file attribute. If a container is not allowed those capabilities, the kernel refuses to run the binary (`Operation not permitted`). Hosts often drop capabilities for security, like a building that issues visitor badges with fewer door permissions, so test images with `--cap-drop` before deploying.
+
 ## Concept coverage
 
 All concepts planned at Phase 0 are now covered above: async/await and event loops, Redis Pub/Sub, WebSockets, time-series databases, SQL window functions, anomaly detection, React state and effects, and Docker networking.

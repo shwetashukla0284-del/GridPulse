@@ -94,6 +94,8 @@ Free-plan trade-offs:
 
 - **512 MB RAM for all six processes.** `start.sh` lowers Postgres `shared_buffers` to 32 MB, caps connections at 20, and limits the Next.js heap to 160 MB. Measured locally under `docker run --memory 512m -e PORT=10000`: about 205 MiB idle and 210 MiB after 100 dashboard/API requests (Next.js about 113 MB RSS, uvicorn about 55 MB), no OOM kill. Render itself has not been measured; if the service restarts with an out-of-memory event, reduce `SIM_METERS` first.
 - **Sleeps after 15 minutes without traffic.** The next visitor waits for a cold start, and the database starts empty (storage is temporary), as on Spaces.
+- **Restricted capabilities.** Render runs containers without some Linux capabilities. The official Caddy binary carries `cap_net_bind_service`, which made it fail with `Operation not permitted` (exit 126); the `Dockerfile` strips it by re-copying the file. To test locally like Render: `docker run --cap-drop ALL --memory 512m -e PORT=10000 -p 10000:10000 gridpulse-allinone`.
+- **Restarts in the same filesystem.** `start.sh` removes stale Postgres lock/PID files so a restart after a crash does not fail.
 - **Same security limits as the Spaces image** (trust auth on 127.0.0.1 only, Python 3.12).
 
 ## Running without Docker (development)

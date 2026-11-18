@@ -29,8 +29,14 @@ wait_for "Redis" redis-cli -h 127.0.0.1 ping
 
 # --- PostgreSQL + TimescaleDB. Storage on free Spaces is temporary, so the
 # database starts empty after each restart (the simulator refills it).
+# A host may restart this script inside the same container filesystem (Render
+# did after a crash). Nothing else runs Postgres here, so lock and PID files left
+# by the previous attempt are stale and would block startup; remove them.
+rm -f /tmp/.s.PGSQL.5432 /tmp/.s.PGSQL.5432.lock "$PGDATA/postmaster.pid"
 if [ ! -s "$PGDATA/PG_VERSION" ]; then
   log "initializing database in $PGDATA"
+  # A half-initialized directory from an interrupted attempt would make initdb fail.
+  rm -rf "$PGDATA"
   # trust auth is acceptable only because Postgres listens on 127.0.0.1 inside
   # the container and that port is never published; only Caddy's port is public.
   initdb -D "$PGDATA" -U "$DB_USER" --auth=trust >/dev/null
@@ -42,7 +48,7 @@ postgres -D "$PGDATA" \
   -c timescaledb.telemetry_level=off \
   -c shared_buffers=32MB \
   -c max_connections=20 \
-  -c timescaledb.max_background_workers=2 &
+  -c timescaledb.max_background_workers=4 &
 wait_for "PostgreSQL" pg_isready -h 127.0.0.1 -U "$DB_USER" -d postgres
 if ! psql -h 127.0.0.1 -U "$DB_USER" -d postgres -tAc \
     "SELECT 1 FROM pg_database WHERE datname = '$DB_NAME'" | grep -q 1; then

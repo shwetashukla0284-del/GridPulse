@@ -161,3 +161,7 @@ On Hugging Face Spaces, which is free but runs one container on one port. The ro
 ## Why move the demo to Render, and what changed?
 
 Hugging Face Spaces started asking for payment, and Render's free web service needs no card. Render has no TimescaleDB, so I kept the all-in-one image; only a `render.yaml` Blueprint and memory limits were added (Postgres `shared_buffers` 32 MB, 20 connections, Next.js heap 160 MB) because all six processes share 512 MB. The trade-offs are cold starts after 15 idle minutes and a database that resets on restart, which is fine for a demo driven by a simulator.
+
+## Why did the image work locally but fail on Render?
+
+Render runs containers with fewer Linux capabilities than Docker Desktop. The Caddy binary I copied from the official image carries the `cap_net_bind_service` file capability, so on Render the kernel refused to execute it: `Operation not permitted`, exit status 126. I reproduced it locally with `--cap-drop NET_BIND_SERVICE`, fixed it by stripping the capability (Caddy uses a high port, so it never needed it), and verified with `--cap-drop ALL`. The crash also exposed a second bug: Render restarted the script in the same filesystem and a stale Postgres lock file blocked startup, so the start script now removes stale lock files. Lesson: reproduce the host's restrictions locally instead of assuming "works on my machine" means it works there.
