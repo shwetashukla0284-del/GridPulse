@@ -1,19 +1,12 @@
----
-title: GridPulse
-emoji: ⚡
-colorFrom: green
-colorTo: blue
-sdk: docker
-app_port: 7860
-pinned: false
-short_description: Real-time smart grid analytics dashboard
----
-
 # GridPulse — Real-Time Smart Grid Analytics
+
+### 🔴 Live demo: <https://gridpulse-mmlk.onrender.com>
+
+> Hosted on Render's free tier: if nobody has visited for 15 minutes, the first load takes about a minute while the service wakes up. Data is simulated and restarts with the service. API docs: <https://gridpulse-mmlk.onrender.com/docs>
 
 GridPulse simulates household smart meters with rooftop solar, streams their readings through Redis into a FastAPI service, stores them in TimescaleDB, flags unusual demand with a rolling z-score detector, and shows everything live on a Next.js dashboard.
 
-**Stack:** Python 3.13 · FastAPI · asyncio · Redis Pub/Sub · PostgreSQL 16 + TimescaleDB · asyncpg · Next.js 16 · React 19 · TypeScript · Recharts · Docker Compose
+**Stack:** Python 3.13 · FastAPI · asyncio · Redis Pub/Sub · PostgreSQL 16 + TimescaleDB · asyncpg · Next.js 16 · React 19 · TypeScript · Recharts · Docker Compose · Caddy · Render
 
 ## Quickstart
 
@@ -87,6 +80,17 @@ python -m tests.evaluate_anomaly --seed 7   # score the detector against injecte
 python -m tests.load_test --help            # throughput / latency load test
 ```
 
+## Deployment
+
+The live demo runs on Render's free web service, defined as code in [`render.yaml`](render.yaml) and redeployed automatically on every push to `main`.
+
+Free hosts run **one container on one port**, so the root [`Dockerfile`](Dockerfile) packages every service as a process in one image: Redis, PostgreSQL + TimescaleDB, the FastAPI API, the simulator, the Next.js dashboard, and **Caddy** as the single public entry point. Caddy routes API and WebSocket paths to FastAPI and everything else to the dashboard, so the browser sees one origin and needs no CORS. A start script launches the services in dependency order and exits if any of them stops, so the host restarts the container.
+
+- **Memory:** all processes share 512 MB, so Postgres and Next.js memory are capped. Measured locally under a 512 MB limit: about 146–210 MiB in use, no out-of-memory kill.
+- **Lesson from the first deploy:** Render runs containers with fewer Linux capabilities than Docker Desktop, and the official Caddy binary failed with `Operation not permitted` (exit 126). The image now strips that unneeded capability; test locally like Render with `docker run --cap-drop ALL --memory 512m -e PORT=10000 -p 10000:10000 <image>`.
+
+Step-by-step instructions, free-tier trade-offs, and what a production deployment would add: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
 ## Project layout
 
 ```
@@ -95,11 +99,12 @@ backend/app/    FastAPI app, consumer, anomaly detector, repository (SQL), WebSo
 frontend/       Next.js dashboard and Vitest tests
 tests/          Python tests, anomaly evaluation, load test
 docs/           architecture, deployment, learning log, concepts, interview prep
-compose.yaml    full local stack
-Dockerfile      all-in-one image for single-container hosts (Hugging Face Spaces)
+compose.yaml    full local stack (one container per service)
+Dockerfile      all-in-one image for single-container hosts (the Render demo)
+render.yaml     Render Blueprint: free Docker web service with a /health check
 deploy/         start script and Caddy proxy config for the all-in-one image
 ```
 
 ## Limitations
 
-Redis Pub/Sub does not replay messages missed while the API is down; detector state resets on restart; there is no authentication or TLS; one API instance holds the WebSocket and detector state. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) before running it anywhere public.
+Redis Pub/Sub does not replay messages missed while the API is down; detector state resets on restart; there is no authentication (the demo is read-only with simulated data), and HTTPS comes from the host rather than the app; one API instance holds the WebSocket and detector state. On the free demo, storage is temporary. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) before running it anywhere public.

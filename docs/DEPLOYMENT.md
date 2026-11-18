@@ -66,7 +66,17 @@ Publish it:
 
 1. Create a Space at <https://huggingface.co/new-space>: SDK **Docker**, template **Blank**, hardware **CPU basic (free)**.
 2. Create a Hugging Face access token with **write** permission at <https://huggingface.co/settings/tokens>. Git uses it as the password.
-3. Push the repository to the Space (the YAML block at the top of `README.md` tells Spaces to use Docker on port 7860):
+3. Spaces reads its settings from a YAML block at the very top of `README.md`. The block was removed when the demo moved to Render (GitHub displays it as a table), so add it back before pushing to a Space:
+
+   ```yaml
+   ---
+   title: GridPulse
+   sdk: docker
+   app_port: 7860
+   ---
+   ```
+
+   Then push the repository to the Space:
 
    ```bash
    git remote add space https://huggingface.co/spaces/<username>/GridPulse
@@ -88,7 +98,7 @@ Hugging Face Spaces later asked for payment, so the free demo now targets Render
 
 1. Sign in at <https://dashboard.render.com> with GitHub (no card needed for the free plan).
 2. **New → Blueprint**, pick the `GridPulse` repository, and apply `render.yaml`.
-3. Watch the deploy logs. The first build takes a long time (it built in about 30 minutes on the development laptop; Render's time was not measured). The site is at `https://gridpulse-<suffix>.onrender.com`.
+3. Watch the deploy logs. The first build takes a long time (it built in about 30 minutes on the development laptop; Render's time was not measured). This project's demo is at <https://gridpulse-mmlk.onrender.com>.
 
 Free-plan trade-offs:
 
