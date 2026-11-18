@@ -82,6 +82,20 @@ Free-tier trade-offs:
 - **Database without a password.** PostgreSQL uses `trust` authentication but listens only on 127.0.0.1 inside the container, and only Caddy's port is reachable. Do not publish other ports from this image.
 - **Python 3.12.** The image uses the TimescaleDB base image's Alpine Python (3.12) rather than the 3.13 used locally.
 
+## Free public demo: Render (single container, no card)
+
+Hugging Face Spaces later asked for payment, so the free demo now targets Render's free web service. It reuses the same all-in-one image; `render.yaml` (a Render Blueprint) describes one Docker web service on the free plan with `/health` as its health check. Render sets `PORT` (10000 by default) and the Caddyfile listens on `$PORT`, so no code differs between hosts.
+
+1. Sign in at <https://dashboard.render.com> with GitHub (no card needed for the free plan).
+2. **New → Blueprint**, pick the `GridPulse` repository, and apply `render.yaml`.
+3. Watch the deploy logs. The first build takes a long time (it built in about 30 minutes on the development laptop; Render's time was not measured). The site is at `https://gridpulse-<suffix>.onrender.com`.
+
+Free-plan trade-offs:
+
+- **512 MB RAM for all six processes.** `start.sh` lowers Postgres `shared_buffers` to 32 MB, caps connections at 20, and limits the Next.js heap to 160 MB. Measured locally under `docker run --memory 512m -e PORT=10000`: about 205 MiB idle and 210 MiB after 100 dashboard/API requests (Next.js about 113 MB RSS, uvicorn about 55 MB), no OOM kill. Render itself has not been measured; if the service restarts with an out-of-memory event, reduce `SIM_METERS` first.
+- **Sleeps after 15 minutes without traffic.** The next visitor waits for a cold start, and the database starts empty (storage is temporary), as on Spaces.
+- **Same security limits as the Spaces image** (trust auth on 127.0.0.1 only, Python 3.12).
+
 ## Running without Docker (development)
 
 ```bash

@@ -1,0 +1,19 @@
+# Render Blueprint: one free Docker web service built from the all-in-one root
+# Dockerfile (Redis, PostgreSQL + TimescaleDB, FastAPI, simulator, Next.js, Caddy).
+# Render injects PORT (10000 by default); the Caddyfile listens on $PORT.
+# Render does not provide TimescaleDB, which is why the database runs inside the image.
+services:
+  - type: web
+    name: gridpulse
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # Fewer meters and slower readings keep CPU and memory low on the free plan (512 MB).
+      - key: SIM_METERS
+        value: "5"
+      - key: SIM_INTERVAL_SECONDS
+        value: "2"

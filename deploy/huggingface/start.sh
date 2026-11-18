@@ -39,7 +39,10 @@ postgres -D "$PGDATA" \
   -c listen_addresses=127.0.0.1 \
   -c unix_socket_directories=/tmp \
   -c shared_preload_libraries=timescaledb \
-  -c timescaledb.telemetry_level=off &
+  -c timescaledb.telemetry_level=off \
+  -c shared_buffers=32MB \
+  -c max_connections=20 \
+  -c timescaledb.max_background_workers=2 &
 wait_for "PostgreSQL" pg_isready -h 127.0.0.1 -U "$DB_USER" -d postgres
 if ! psql -h 127.0.0.1 -U "$DB_USER" -d postgres -tAc \
     "SELECT 1 FROM pg_database WHERE datname = '$DB_NAME'" | grep -q 1; then
@@ -63,7 +66,8 @@ python3 -m simulator \
   --redis-url "$REDIS_URL" > /dev/null &
 
 # --- Dashboard and the public entry point.
-(cd /app/web && exec node node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3000) &
+# A heap cap keeps Next.js within small hosts' memory (Render free: 512 MB for everything).
+(cd /app/web && exec node --max-old-space-size=160 node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3000) &
 caddy run --config /app/deploy/huggingface/Caddyfile --adapter caddyfile &
 log "GridPulse is starting on port ${PORT:-7860}"
 

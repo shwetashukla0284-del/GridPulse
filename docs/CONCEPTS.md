@@ -268,6 +268,10 @@ A reverse proxy is one public entry point that forwards each request to the righ
 
 Docker's usual rule is one process per container, with an orchestrator (Compose) handling start order and restarts. Hosts that allow only one container push that job into the container: a start script launches each service, waits for readiness before starting dependents, and exits when any process stops so the host restarts the whole unit. It is a deployment adaptation, not a change to the architecture: the same services still talk over Redis, SQL, and HTTP.
 
+## Infrastructure as code (Render Blueprint)
+
+`render.yaml` describes the service (runtime, plan, health check, environment) in the repository instead of clicking through a dashboard. Like a recipe card versus remembering the steps, it makes the deployment reproducible and reviewable in Git. Memory budgets matter on small hosts: every process (Postgres buffers, the Node.js heap) takes a share of one fixed limit.
+
 ## Concept coverage
 
 All concepts planned at Phase 0 are now covered above: async/await and event loops, Redis Pub/Sub, WebSockets, time-series databases, SQL window functions, anomaly detection, React state and effects, and Docker networking.

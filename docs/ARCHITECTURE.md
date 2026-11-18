@@ -66,7 +66,7 @@ Anomaly detection, scored against injected faults (5 meters × 3 simulated days,
 ## Deployment variants
 
 - **Compose (`compose.yaml`)**: one container per service, for local development and servers.
-- **All-in-one (`Dockerfile`, `deploy/huggingface/`)**: for hosts that run a single container on one port (Hugging Face Spaces). Every service runs as a process; Caddy on port 7860 routes `/health`, `/readings/*`, `/analytics/*`, `/alerts`, `/ws/*`, `/docs`, and `/openapi.json` to FastAPI and the rest to Next.js. The dashboard is built with empty `NEXT_PUBLIC_*` URLs, meaning same origin (`frontend/src/lib/endpoints.ts`). Storage is temporary on free Spaces. See `docs/DEPLOYMENT.md`.
+- **All-in-one (`Dockerfile`, `deploy/huggingface/`)**: for hosts that run a single container on one port (Render free web service via `render.yaml`; originally Hugging Face Spaces). Every service runs as a process; Caddy on port 7860 routes `/health`, `/readings/*`, `/analytics/*`, `/alerts`, `/ws/*`, `/docs`, and `/openapi.json` to FastAPI and the rest to Next.js. The dashboard is built with empty `NEXT_PUBLIC_*` URLs, meaning same origin (`frontend/src/lib/endpoints.ts`). Storage is temporary on free hosts. See `docs/DEPLOYMENT.md`.
 
 ## Known limitations
 

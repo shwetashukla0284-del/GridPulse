@@ -157,3 +157,7 @@ Secrets out of the Compose defaults, pinned image versions, TLS via a reverse pr
 ## How is the public demo hosted?
 
 On Hugging Face Spaces, which is free but runs one container on one port. The root `Dockerfile` starts from the TimescaleDB image, adds Redis, Python, Node.js, and Caddy, and a start script launches the services in the same order Compose's health checks enforce. Caddy is the only public port and routes API and WebSocket paths to FastAPI, everything else to Next.js, so the dashboard is built for "same origin" and needs no CORS. Trade-offs: storage is temporary (data restarts with the container), and Postgres uses trust authentication, which is acceptable only because it listens on 127.0.0.1 inside the container. Local testing caught one bug: the base image sets `PGDATA` to a directory the non-root user cannot write, so `initdb` failed until `PGDATA` was set explicitly.
+
+## Why move the demo to Render, and what changed?
+
+Hugging Face Spaces started asking for payment, and Render's free web service needs no card. Render has no TimescaleDB, so I kept the all-in-one image; only a `render.yaml` Blueprint and memory limits were added (Postgres `shared_buffers` 32 MB, 20 connections, Next.js heap 160 MB) because all six processes share 512 MB. The trade-offs are cold starts after 15 idle minutes and a database that resets on restart, which is fine for a demo driven by a simulator.
